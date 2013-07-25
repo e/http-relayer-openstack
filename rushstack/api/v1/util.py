@@ -33,34 +33,15 @@ def tenant_local(handler):
 
     return handle_stack_method
 
-
-def identified_stack(handler):
+def identified_rush(handler):
     '''
-    Decorator for a handler method that passes a stack identifier in place of
-    the various path components.
+    Decorator for a handler method that sets the correct rush_id in the
+    request context.
     '''
     @tenant_local
     @wraps(handler)
-    def handle_stack_method(controller, req, stack_name, stack_id, **kwargs):
-        stack_identity = identifier.HeatIdentifier(req.context.tenant_id,
-                                                   stack_name,
-                                                   stack_id)
-        return handler(controller, req, dict(stack_identity), **kwargs)
+    def handle_stack_method(controller, req, rush_id, **kwargs):
+        req.context.rush_id = rush_id
+        return handler(controller, req, **kwargs)
 
     return handle_stack_method
-
-
-def make_url(req, identity):
-    '''Return the URL for the supplied identity dictionary.'''
-    try:
-        stack_identity = identifier.HeatIdentifier(**identity)
-    except ValueError:
-        err_reason = _('Invalid Stack address')
-        raise exc.HTTPInternalServerError(err_reason)
-
-    return req.relative_url(stack_identity.url_path(), True)
-
-
-def make_link(req, identity, relationship='self'):
-    '''Return a link structure for the supplied identity dictionary.'''
-    return {'href': make_url(req, identity), 'rel': relationship}

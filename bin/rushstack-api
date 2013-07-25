@@ -62,6 +62,7 @@ if __name__ == '__main__':
         host = cfg.CONF.bind_host
         LOG.info('Starting Rushstack ReST API on %s:%s' % (host, port))
         server = wsgi.Server()
+        print 'Starting app:'+str(app)
         server.start(app, cfg.CONF, default_port=port)
         server.wait()
     except RuntimeError as e:
