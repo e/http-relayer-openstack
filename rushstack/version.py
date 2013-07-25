@@ -1,8 +1,5 @@
-#!/usr/bin/python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
-# All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -16,8 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import setuptools
 
-setuptools.setup(
-    setup_requires=['d2to1>=0.2.10,<0.3', 'pbr>=0.5.10,<0.6'],
-    d2to1=True)
+import pbr.version
+
+version_info = pbr.version.VersionInfo('rushstack')

@@ -1,9 +1,5 @@
-#!/usr/bin/python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
-# Copyright 2011 OpenStack LLC.
-# All Rights Reserved.
-#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -16,8 +12,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import setuptools
+import sqlalchemy
+from heat.openstack.common import uuidutils
 
-setuptools.setup(
-    setup_requires=['d2to1>=0.2.10,<0.3', 'pbr>=0.5.10,<0.6'],
-    d2to1=True)
+
+def upgrade(migrate_engine):
+    meta = sqlalchemy.MetaData(bind=migrate_engine)
+
+    resource = sqlalchemy.Table('resource', meta, autoload=True)
+
+    resource.c.id.alter(sqlalchemy.String(36), primary_key=True,
+                        default=uuidutils.generate_uuid)
+
+
+def downgrade(migrate_engine):
+    meta = sqlalchemy.MetaData(bind=migrate_engine)
+
+    resource = sqlalchemy.Table('resource', meta, autoload=True)
+
+    resource.c.id.alter(sqlalchemy.Integer, primary_key=True)

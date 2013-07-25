@@ -47,23 +47,22 @@ class RushController(object):
     @util.tenant_local
     def echo(self, req):
         """
-        Echo test method for Rush API
+        Echo test method for Rush API - Sends echo request to RPC backend
         """
-
-        return {'req': str(req), 'req.context': str(req.context.to_dict())}
+        res = self.engine.echo(req.context,'Test message')
+        return {'tenant_id': req.context.tenant_id, 'res': res}
     
     @util.tenant_local
-    def getStatus(self, req):
+    def get_status(self, req):
         """
-        Get status of RUSH service for this tenant
+        Get status of RUSH service for this tenant and id
         """
-        #TODO: Implement call to RPC to get real status and if active, return internal ID
-        return {'result': True, 'active': False}
+        return self.engine.get_status(req.context)
     
     ACTIONS = (STOP, START) = ('stop', 'start')
     
     @util.tenant_local
-    def changeStatus(self, req, body={}):
+    def change_status(self, req, body={}):
         """
         Change status of RUSH service for this tenant
         Only 1 action must be specified
@@ -79,22 +78,21 @@ class RushController(object):
         if ac not in self.ACTIONS:
             raise exc.HTTPBadRequest(_("Invalid action %s specified") % ac)
         
-        #TODO: Implement call to RPC to chage status
         if ac == self.STOP:
-            return {'result': True, 'active': False}
+            return self.engine.stop_rush_stack(req.context)
         elif ac == self.START:
-            return {'result': True, 'active': True}
+            return self.engine.start_rush_stack(req.context)
         else:
             raise exc.HTTPInternalServerError(_("Unexpected action %s") % ac)
     
     @util.identified_rush
-    def getUserEndpoind(self, req):
+    def get_tenant_endpoind(self, req):
         """
         Get tenant RUSH endpoint data
         """
         
-        #TODO: Implement call to RPC to get real status and if active, return internal ID
-        return {'result': True, 'rush_id': req.context.rush_id, 'tk': '77389abbef92e01a0883d', 'ws': 'http://10.95.158.11/rush'}
+        #Call to RPC to get real status and if active, return URL and Token
+        return self.engine.get_tenant_endpoind(req.context,req.context.rush_id)
     
 class RushSerializer(wsgi.JSONResponseSerializer):
     """Handles serialization of specific controller method responses."""
