@@ -57,42 +57,33 @@ class RushController(object):
         """
         Get status of RUSH service for this tenant and id
         """
-        return self.engine.get_status(req.context)
+        return self.engine.get_status(req.context,req.context.tenant_id)
     
     ACTIONS = (STOP, START) = ('stop', 'start')
     
     @util.tenant_local
-    def change_status(self, req, body={}):
+    def create_rush(self, req, body={}):
         """
-        Change status of RUSH service for this tenant
-        Only 1 action must be specified
+        Create RUSH service for this tenant
+        Body must contain the rush_type_id
         """
-
-        if len(body) < 1:
-            raise exc.HTTPBadRequest(_("No action specified."))
-
-        if len(body) > 1:
-            raise exc.HTTPBadRequest(_("Multiple actions specified"))
-
-        ac = body.keys()[0]
-        if ac not in self.ACTIONS:
-            raise exc.HTTPBadRequest(_("Invalid action %s specified") % ac)
-        
-        if ac == self.STOP:
-            return self.engine.stop_rush_stack(req.context)
-        elif ac == self.START:
-            return self.engine.start_rush_stack(req.context)
-        else:
-            raise exc.HTTPInternalServerError(_("Unexpected action %s") % ac)
+        return self.engine.start_rush_stack(req.context,req.context.tenant_id,body['rush_type_id'])
     
     @util.identified_rush
-    def get_tenant_endpoind(self, req):
+    def delete_rush(self, req):
+        """
+        Delete RUSH service for this tenant
+        """
+        return self.engine.stop_rush_stack(req.context,req.context.tenant_id,req.context.rush_id)
+    
+    @util.identified_rush
+    def get_rush_endpoind(self, req):
         """
         Get tenant RUSH endpoint data
         """
         
         #Call to RPC to get real status and if active, return URL and Token
-        return self.engine.get_tenant_endpoind(req.context,req.context.rush_id)
+        return self.engine.get_rush_endpoint(req.context,req.context.tenant_id,req.context.rush_id)
     
 class RushSerializer(wsgi.JSONResponseSerializer):
     """Handles serialization of specific controller method responses."""

@@ -32,7 +32,31 @@ def model_query(context, *args):
 def _session(context):
     return (context and context.session) or get_session()
 
+def rush_tenant_get_all_by_tenant(context, tenant_id):
+    result = model_query(context, models.RushTenant).\
+        filter_by(tenant_id=tenant_id)
 
+    return result
+
+def rush_stack_create(context, values):
+    rush_stack_ref = models.RushStack()
+    rush_stack_ref.update(values)
+    rush_stack_ref.save(_session(context))
+    return rush_stack_ref
+
+def rush_tenant_create(context, values):
+    rush_tenant_ref = models.RushTenant()
+    rush_tenant_ref.update(values)
+    rush_tenant_ref.save(_session(context))
+    return rush_tenant_ref
+
+def rush_type_get(context, type_id):
+    return model_query(context, models.RushType).get(type_id)
+
+def rush_stack_get(context, rush_id):
+    return model_query(context, models.RushStack).get(rush_id)
+
+'''HEAT access methods'''
 def raw_template_get(context, template_id):
     result = model_query(context, models.RawTemplate).get(template_id)
 

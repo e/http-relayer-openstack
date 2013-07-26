@@ -20,7 +20,7 @@ from rushstack.db import utils
 IMPL = utils.LazyPluggable('db_backend',
                            sqlalchemy='rushstack.db.sqlalchemy.migration')
 
-INIT_VERSION = 14
+INIT_VERSION = 10
 
 
 def db_sync(version=None):

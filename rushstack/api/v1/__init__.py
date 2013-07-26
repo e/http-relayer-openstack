@@ -57,12 +57,17 @@ class API(wsgi.Router):
 
             ac_mapper.connect("status",
                                  "",
-                                 action="change_status",
+                                 action="create_rush",
                                  conditions={'method': 'PUT'})
+
+            ac_mapper.connect("status",
+                                 "/{rush_id}",
+                                 action="delete_rush",
+                                 conditions={'method': 'DELETE'})
 
             ac_mapper.connect("rushdata",
                                  "/{rush_id}",
-                                 action="get_tenant_endpoind",
+                                 action="get_rush_endpoind",
                                  conditions={'method': 'GET'})
 
         super(API, self).__init__(mapper)

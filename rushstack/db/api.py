@@ -53,11 +53,26 @@ def configure():
     SQL_CONNECTION = cfg.CONF.sql_connection
     SQL_IDLE_TIMEOUT = cfg.CONF.sql_idle_timeout
 
-
 def get_session():
     return IMPL.get_session()
 
 
+def rush_tenant_get_all_by_tenant(context, tenant_id):
+    return IMPL.rush_tenant_get_all_by_tenant(context, tenant_id)
+
+def rush_tenant_create(context, values):
+    return IMPL.rush_tenant_create(context, values)
+
+def rush_stack_create(context, values):
+    return IMPL.rush_stack_create(context, values)
+
+def rush_type_get(context, type_id):
+    return IMPL.rush_type_get(context, type_id)
+
+def rush_stack_get(context, rush_id):
+    return IMPL.rush_stack_get(context, rush_id)
+
+'''HEAT methods'''
 def raw_template_get(context, template_id):
     return IMPL.raw_template_get(context, template_id)
 

@@ -32,6 +32,7 @@ from rushstack.openstack.common import threadgroup
 from rushstack.openstack.common.gettextutils import _
 from rushstack.openstack.common.rpc import service
 from rushstack.openstack.common import uuidutils
+from rushstack.openstack.common import exception
 
 
 logger = logging.getLogger(__name__)
@@ -83,15 +84,128 @@ class EngineService(service.Service):
         '''
         return '*%s*'%msg
 
-    def get_status(self, ctxt):
+    @request_context
+    def get_status(self, ctxt,tenant_id):
         """
         Get Rush service status for the tenant (ctxt should contain tenant_id).
 
         :param ctxt: RPC context (must contain tenant_id)
+        :param tenant_id: tenant_id to check for Rush
         
-        Returns: Response got from RPC server.
+        Returns: JSON Specifying the status of rush and the id if present
         Response sample: {'result': True, 'active': True, 'rush_id': '8483934393'}
         """
-        #TODO: Do somemething
-        logger.debug('request get_status or tenant_id:'+ctxt.tenant_id)
-        return {'result': True, 'active': True, 'rush_id': '8483934393'}
+        
+        #Check in db if this tenant has an instanced Rush
+        rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
+        if rt.first():
+            logger.debug('tenant has rush:%s'%rt.first().rush_id)
+            return {'result': True, 'active': True, 'rush_id': rt.first().rush_id}
+        else:
+            logger.debug('tenant has no rush')
+            return {'result': True, 'active': False}
+
+    @request_context
+    def start_rush_stack(self, ctxt,tenant_id,rush_type_id):
+        """
+        Create new Rush service for the tenant
+
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id to check for Rush
+        :param rush_type_id: rush_type_id for the new rush
+        
+        Returns: JSON Specifying the creation start result and the rush_id. Rush can take longer
+                 to be ready for serving (check with get_status)
+        Response sample: {'result': True, 'rush_id': '8483934393'}
+        """
+        
+        #Check in db if this tenant has an instanced Rush
+        rush_stat = self.get_status(ctxt,tenant_id)
+        if rush_stat.has_key('active') and rush_stat['active']:
+            return {'result': False, 'error': 'STARTRUSHEX01', 'error_desc': 'Rush already active'}
+        else:
+            try:
+                #Check if type_id exists
+                rtc = db_api.rush_type_get(ctxt,rush_type_id)
+                if not rtc:
+                    return {'result': False, 'error': 'STARTRUSHEX02', 'error_desc': 'Rush type does not exist'}
+                    
+                rush_id = uuidutils.generate_uuid()
+                
+                #TODO: Call HEAT and get the stack:id
+                stack_id = ''
+                values = {'stack_id':stack_id,'id':rush_id,'rush_type_id':rush_type_id,'status':'creating'}
+                rc = db_api.rush_stack_create(ctxt, values)
+                values = {'rush_id':rush_id,'tenant_id':tenant_id}
+                tc = db_api.rush_tenant_create(ctxt, values)
+                return {'result': True, 'rush_id': rush_id}
+            except Exception as e:
+                return {'result': False, 'error': str(e)}
+
+    @request_context
+    def stop_rush_stack(self, ctxt,tenant_id,rush_id):
+        """
+        Deletes the Rush service identified by rush_id for the tenant
+
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id to check for Rush
+        :param rush_id: rush_id to stop
+        
+        Returns: JSON Specifying the stop result and the rush_id.
+        Response sample: {'result': True, 'rush_id': '8483934393'}
+        """
+        
+        #Check in db if this tenant has an instanced Rush
+        rsc = db_api.rush_stack_get(ctxt,rush_id)
+        if rsc:
+            try:
+                #Check if it is for this tenant
+                rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
+                if not rt or rt.first().tenant_id != tenant_id:
+                    return {'result': False, 'error': 'STOPRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
+                    
+                #TODO: Call HEAT and stop the stack
+                rt.delete()
+                rsc.delete()
+                return {'result': True, 'rush_id': rush_id}
+            except Exception as e:
+                return {'result': False, 'error': str(e)}
+        else:
+            return {'result': False, 'error': 'STOPRUSHEX01', 'error_desc': 'Could not find Rush'}
+
+    @request_context
+    def get_rush_endpoint(self, ctxt,tenant_id,rush_id):
+        """
+        Get the endpoint data for the Rush service identified by rush_id for the tenant
+
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id to check for Rush
+        :param rush_id: rush_id to stop
+        
+        Returns: JSON Specifying the stop result and the rush_id.
+        Response sample: {'result': True, 'rush_id': '8483934393', 'tk': '77389abbef92e01a0883d', 'ws': 'http://10.95.158.11/rush'}
+        """
+        
+        #Check in db if the rush exists
+        rsc = db_api.rush_stack_get(ctxt,rush_id)
+        if rsc:
+            try:
+                #Check if it is for this tenant
+                rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
+                if not rt or rt.first().tenant_id != tenant_id:
+                    return {'result': False, 'error': 'GETRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
+                
+                #Check if the data is fill in. If not, update
+                #TODO: Call heat to update if necessary
+                if rsc.tk is None:
+                    #TODO: Go to get it
+                    rsc.tk = "aabbccddeeff1234567890"
+                if rsc.url is None:
+                    #TODO: Go to get it
+                    rsc.url = "http://10.98.28.23/"
+                return {'result': True, 'rush_id': rush_id, 'tk': str(rsc.tk), 'url': str(rsc.url)}
+            except Exception as e:
+                return {'result': False, 'error': str(e)}
+        else:
+            return {'result': False, 'error': 'GETRUSHEX02', 'error_desc': 'Could not find Rush'}
+                

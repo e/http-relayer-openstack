@@ -48,46 +48,60 @@ class EngineClient(rushstack.openstack.common.rpc.proxy.RpcProxy):
         return self.call(ctxt, self.make_msg('echo',
                                              msg=msg))
 
-    def get_status(self, ctxt):
+    def get_status(self, ctxt, tenant_id):
         """
         Get Rush service status for the tenant (ctxt should contain tenant_id).
 
-        :param ctxt: RPC context (must contain tenant_id)
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id to check for Rush
         
         Returns: Response got from RPC server.
         Response sample: {'result': True, 'active': True, 'rush_id': '8483934393'}
         """
-        return self.call(ctxt, self.make_msg('get_status'))
+        return self.call(ctxt, self.make_msg('get_status',
+                                             tenant_id=tenant_id))
 
-    def start_rush_stack(self, ctxt):
+    def start_rush_stack(self, ctxt, tenant_id, rush_type_id):
         """
         Instantiate a new Rush service for the required tenant
 
-        :param ctxt: RPC context (must contain tenant_id)
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id for the new Rush
+        :param rush_type_id: rush_type_id for the new rush
         
         Returns: Response got from RPC server.
         Response sample: {'result': True, 'rush_id': '8483934393'}
         """
-        return self.call(ctxt, self.make_msg('start_rush_stack'))
+        return self.call(ctxt, self.make_msg('start_rush_stack',
+                                             tenant_id=tenant_id,
+                                             rush_type_id=rush_type_id))
 
-    def stop_rush_stack(self, ctxt):
+    def stop_rush_stack(self, ctxt, tenant_id, rush_id):
         """
         Stop (and destroye) a an existing Rush service for the required tenant
 
-        :param ctxt: RPC context (must contain tenant_id)
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id owner of the Rsuh
+        :param rush_id: Rush to stop
         
         Returns: Response got from RPC server.
         Response sample: {'result': True}
         """
-        return self.call(ctxt, self.make_msg('stop_rush_stack'))
+        return self.call(ctxt, self.make_msg('stop_rush_stack',
+                                             tenant_id=tenant_id,
+                                             rush_id=rush_id))
 
-    def get_tenant_endpoind(self, ctxt):
+    def get_rush_endpoint(self, ctxt, tenant_id, rush_id):
         """
         Get Rush service status for the tenant (ctxt should contain tenant_id).
 
-        :param ctxt: RPC context (must contain tenant_id)
+        :param ctxt: RPC context
+        :param tenant_id: tenant_id to check for Rush
+        :param rush_id: Rush to get data
         
         Returns: Response got from RPC server.
         Response sample: {'result': True, 'rush_id': '8483934393', 'tk': '77389abbef92e01a0883d', 'ws': 'http://10.95.158.11/rush'}
         """
-        return self.call(ctxt, self.make_msg('get_tenant_endpoind'))
+        return self.call(ctxt, self.make_msg('get_rush_endpoint',
+                                             tenant_id=tenant_id,
+                                             rush_id=rush_id))
