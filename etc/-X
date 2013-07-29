@@ -1,6 +1,0 @@
-HTTP/1.1 401 Not Authorized
-Vary: X-Auth-Token
-Content-Type: application/json
-Content-Length: 116
-Date: Wed, 24 Jul 2013 12:46:34 GMT
-

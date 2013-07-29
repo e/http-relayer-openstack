@@ -56,6 +56,16 @@ def rush_type_get(context, type_id):
 def rush_stack_get(context, rush_id):
     return model_query(context, models.RushStack).get(rush_id)
 
+def rush_stack_update(context, rush_id, values):
+    rushstack = rush_stack_get(context, rush_id)
+
+    if not rushstack:
+        raise exception.NotFound('Attempt to update a rushstack with id: %s %s' %
+                                 (rush_id, 'that does not exist'))
+
+    rushstack.update(values)
+    rushstack.save(_session(context))
+
 '''HEAT access methods'''
 def raw_template_get(context, template_id):
     result = model_query(context, models.RawTemplate).get(template_id)

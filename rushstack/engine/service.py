@@ -33,6 +33,7 @@ from rushstack.openstack.common.gettextutils import _
 from rushstack.openstack.common.rpc import service
 from rushstack.openstack.common import uuidutils
 from rushstack.openstack.common import exception
+from rushstack.heatapi import heat
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ def request_context(func):
         return func(self, ctx, *args, **kwargs)
     return wrapped
 
+HEAT_API_VERSION = "1"
 
 class EngineService(service.Service):
     """
@@ -65,6 +67,7 @@ class EngineService(service.Service):
 
         # Create dummy service task, because when there is nothing queued
         # on self.tg the process exits
+        logger.warning('periodic_interval:'+str(cfg.CONF.periodic_interval))
         self.tg.add_timer(cfg.CONF.periodic_interval,
                           self._service_task)
 
@@ -93,14 +96,28 @@ class EngineService(service.Service):
         :param tenant_id: tenant_id to check for Rush
         
         Returns: JSON Specifying the status of rush and the id if present
-        Response sample: {'result': True, 'active': True, 'rush_id': '8483934393'}
+        Response sample: {'result': True, 'active': True, 'rush_id': '8483934393', 'status': 'CREATE_COMPLETE'}
         """
         
         #Check in db if this tenant has an instanced Rush
         rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
         if rt.first():
-            logger.debug('tenant has rush:%s'%rt.first().rush_id)
-            return {'result': True, 'active': True, 'rush_id': rt.first().rush_id}
+            rtentry = rt.first()
+            logger.debug('tenant has rush:%s'%rtentry.rush_id)
+            
+            #Update status with heat data (Rushstack DB can be out of sync with HEAT stack status)
+            heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
+            stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
+            if len(stack_list) > 0:
+                #Stack info first
+                stack_info = stack_list[0]._info;
+                values = {'status':stack_info['stack_status']}
+                db_api.rush_stack_update(ctxt, rtentry.rush_id, values)
+                
+            rsc = db_api.rush_stack_get(ctxt,rtentry.rush_id)
+            self.update_rush_endpointdata(ctxt,heatcln,rsc.stack_id,rtentry.rush_id)
+            
+            return {'result': True, 'active': True, 'rush_id': rtentry.rush_id, 'status': rsc.status}
         else:
             logger.debug('tenant has no rush')
             return {'result': True, 'active': False}
@@ -132,13 +149,32 @@ class EngineService(service.Service):
                     
                 rush_id = uuidutils.generate_uuid()
                 
-                #TODO: Call HEAT and get the stack:id
-                stack_id = ''
-                values = {'stack_id':stack_id,'id':rush_id,'rush_type_id':rush_type_id,'status':'creating'}
-                rc = db_api.rush_stack_create(ctxt, values)
-                values = {'rush_id':rush_id,'tenant_id':tenant_id}
-                tc = db_api.rush_tenant_create(ctxt, values)
-                return {'result': True, 'rush_id': rush_id}
+                #Call HEAT to create the stack
+                heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
+                
+                #Prapare dict for stack creation
+                stack_parms = {
+                    'KeyName': cfg.CONF.tdaf_instance_key
+                }
+                
+                stack_info = {
+                    'stack_name': cfg.CONF.tdaf_rush_prefix+str(tenant_id),
+                    'parameters': stack_parms,
+                    'template': rtc.template,
+                    'timeout_mins': 60,
+                }
+                heatcln.stacks.create(**stack_info)
+
+                stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
+                if len(stack_list) > 0:
+                    stack_info = stack_list[0]._info;
+                    values = {'stack_id':stack_info['id'],'id':rush_id,'rush_type_id':rush_type_id,'status': stack_info['stack_status']}
+                    rc = db_api.rush_stack_create(ctxt, values)
+                    values = {'rush_id':rush_id,'tenant_id':tenant_id}
+                    tc = db_api.rush_tenant_create(ctxt, values)
+                    return {'result': True, 'rush_id': rush_id, 'misc': str(stack_info)}
+                else:
+                    return {'result': False, 'error': 'STARTRUSHEX03', 'error_desc': 'OpenStack stack could not be created'}
             except Exception as e:
                 return {'result': False, 'error': str(e)}
 
@@ -164,7 +200,10 @@ class EngineService(service.Service):
                 if not rt or rt.first().tenant_id != tenant_id:
                     return {'result': False, 'error': 'STOPRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
                     
-                #TODO: Call HEAT and stop the stack
+                #Call HEAT to destroy the stack
+                heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
+                heatcln.stacks.delete(rsc.stack_id)
+                
                 rt.delete()
                 rsc.delete()
                 return {'result': True, 'rush_id': rush_id}
@@ -196,16 +235,78 @@ class EngineService(service.Service):
                     return {'result': False, 'error': 'GETRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
                 
                 #Check if the data is fill in. If not, update
-                #TODO: Call heat to update if necessary
-                if rsc.tk is None:
-                    #TODO: Go to get it
-                    rsc.tk = "aabbccddeeff1234567890"
-                if rsc.url is None:
-                    #TODO: Go to get it
-                    rsc.url = "http://10.98.28.23/"
+                if rsc.tk is None or rsc.url is None:
+                    heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
+                    self.update_rush_endpointdata(ctxt,heatcln,rsc.stack_id,rush_id)
+                    
                 return {'result': True, 'rush_id': rush_id, 'tk': str(rsc.tk), 'url': str(rsc.url)}
             except Exception as e:
                 return {'result': False, 'error': str(e)}
         else:
             return {'result': False, 'error': 'GETRUSHEX02', 'error_desc': 'Could not find Rush'}
-                
+    
+    def get_stack_list_for_tenant(self,heatcln,tenant_id):
+        """
+        Get all the stacks heat has configured for a tenant
+
+        :param heatcln: HEAT client alread initialized
+        :param tenant_id: tenant_id to check
+        
+        Returns: List of Stack objects with a _info field stating a JSON with the stack data (as defined by HEAT)
+        """
+        #Build query to get stack id                
+        stack_filters = {
+            'stack_name': cfg.CONF.tdaf_rush_prefix+str(tenant_id),
+        }
+        stack_search = {
+            'filters': stack_filters,
+        }
+        stack_generator = heatcln.stacks.list(**stack_search)
+        stack_list = []
+        for stack in stack_generator:
+            stack_list.append(stack)
+        return stack_list
+
+    def get_instance_and_ip_list_for_stack_id(self,heatcln,stack_id):
+        """
+        Get all the instance resources and ip resources configured for a stack_id
+
+        :param heatcln: HEAT client alread initialized
+        :param stack_id: stack_id to get all the resources from
+        
+        Returns: instance_list: list of resource instances found
+                 ip_list: list of ip resources found
+        """
+        #Get the instance list for this stack
+        resources = heatcln.resources.list(stack_id)
+        instance_list = []
+        ip_list = []
+        
+        for resource in resources:
+            res_info = resource._info
+            
+            #Add those resources that are instances
+            if res_info['resource_type'] == 'AWS::EC2::Instance':
+                instance_list.append(resource)
+            if res_info['resource_type'] == 'AWS::EC2::EIPAssociation':
+                ip_list.append(resource)
+        return instance_list,ip_list
+    
+    def update_rush_endpointdata(self,ctxt,heatcln,stack_id,rush_id):
+        """
+        Updates in the DB the RUSH data based on the stack data
+
+        :param ctxt: RPC context
+        :param heatcln: HEAT client alread initialized
+        :param stack_id: stack_id to get all the resources from
+        :param rush_id: rush_id to be updated with the obtained info
+        """
+        #Get the instance list for this stack
+        instance_list,ip_list = self.get_instance_and_ip_list_for_stack_id(heatcln,stack_id)
+        
+        #If there is any ip, use it as rush WS
+        if len(ip_list)>0:
+            ip_info = ip_list[0]._info;
+            values = {'url':'http://'+ip_info['physical_resource_id']}
+            db_api.rush_stack_update(ctxt, rush_id, values)
+            

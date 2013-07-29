@@ -72,6 +72,9 @@ def rush_type_get(context, type_id):
 def rush_stack_get(context, rush_id):
     return IMPL.rush_stack_get(context, rush_id)
 
+def rush_stack_update(context, rush_id, values):
+    return IMPL.rush_stack_update(context, rush_id, values)
+
 '''HEAT methods'''
 def raw_template_get(context, template_id):
     return IMPL.raw_template_get(context, template_id)
