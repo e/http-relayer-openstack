@@ -1,0 +1,18 @@
+Rushstack DB
+------------
+
+When configuring Rushstack, create the DB in MYSQL:
+
+CREATE DATABASE IF NOT EXISTS rushstack;
+GRANT ALL ON rushstack.* TO 'rushstack'@'localhost' IDENTIFIED BY 'rushstack';
+GRANT ALL ON rushstack.* TO 'rushstack'@'%' IDENTIFIED BY 'rushstack';
+flush privileges;
+
+
+Configure the model:
+rushstack-manage db_sync
+
+Insert default data (review correct profiles)
+use rushstack;
+insert into rush_type(name,template,created_at,updated_at) values ('Basic','{"AWSTemplateFormatVersion": "2010-09-09", "Outputs": {"InstanceIp": {"Description": "My ssh command", "Value": {"Fn::Join": ["", ["ssh ec2-user@", {"Fn::GetAtt": ["MyInstance", "PublicIp"]}]]}}}, "Parameters": {"KeyName": {"Type": "String", "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance"}}, "Resources": {"MyInstance": {"Type": "AWS::EC2::Instance", "Properties": {"UserData": {"Fn::Base64": "80"}, "KeyName": {"Ref": "KeyName"}, "InstanceType": "m1.small", "ImageId": "EPG-TEMPLATE-RHEL63x64"}}}}',now(),now());
+insert into rush_type(name,template,created_at,updated_at) values ('WithFloatingIP','{"AWSTemplateFormatVersion": "2010-09-09", "Outputs": {"InstanceIp": {"Description": "My ssh command", "Value": {"Fn::Join": ["", ["ssh ec2-user@", {"Fn::GetAtt": ["FRONTAL", "PublicIp"]}]]}}}, "Parameters": {"KeyName": {"Type": "String", "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance"}},"Resources": {"FRONTAL": {"Type": "AWS::EC2::Instance", "Properties": {"UserData": {"Fn::Base64": "80"}, "KeyName": {"Ref": "KeyName"}, "InstanceType": "m1.small", "ImageId": "EPG-TEMPLATE-RHEL63x64"}},"IPAddress" : {"Type" : "AWS::EC2::EIP"},"IPAssoc" : {"Type" : "AWS::EC2::EIPAssociation","Properties" : {"InstanceId" : { "Ref" : "FRONTAL" },"EIP" : { "Ref" : "IPAddress" }}}}}',now(),now());

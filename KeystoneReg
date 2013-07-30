@@ -1,0 +1,11 @@
+Rushstack Keystone
+------------------
+
+To be executed as OpenStack admin.
+
+keystone service-create --name=rushstack \
+                                   --type=tdafservice \
+                                   --description="TDAF Rushstack Service"
+                                   
+keystone endpoint-create --region RegionOne --service_id <RUSH_SERVICE_ID> \
+        --publicurl "http://10.95.158.4:18000/v1/%(tenant_id)s" --adminurl "http://10.95.158.4:18000/v1/%(tenant_id)s" --internalurl "http://10.95.158.4:18000/v1/%(tenant_id)s"
