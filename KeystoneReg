@@ -4,7 +4,7 @@ Rushstack Keystone
 To be executed as OpenStack admin.
 
 keystone service-create --name=rushstack \
-                                   --type=tdafservice \
+                                   --type=rushstack \
                                    --description="TDAF Rushstack Service"
                                    
 keystone endpoint-create --region RegionOne --service_id <RUSH_SERVICE_ID> \
