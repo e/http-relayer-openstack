@@ -35,6 +35,8 @@ from rushstack.openstack.common import uuidutils
 from rushstack.openstack.common import exception
 from rushstack.heatapi import heat
 
+import json
+
 
 logger = logging.getLogger(__name__)
 
@@ -160,19 +162,26 @@ class EngineService(service.Service):
                 stack_info = {
                     'stack_name': cfg.CONF.tdaf_rush_prefix+str(tenant_id),
                     'parameters': stack_parms,
-                    'template': rtc.template,
+                    'template': rtc.template.replace ('\n', '\\n'),
                     'timeout_mins': 60,
                 }
                 heatcln.stacks.create(**stack_info)
 
                 stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
                 if len(stack_list) > 0:
-                    stack_info = stack_list[0]._info;
-                    values = {'stack_id':stack_info['id'],'id':rush_id,'rush_type_id':rush_type_id,'status': stack_info['stack_status']}
-                    rc = db_api.rush_stack_create(ctxt, values)
-                    values = {'rush_id':rush_id,'tenant_id':tenant_id}
-                    tc = db_api.rush_tenant_create(ctxt, values)
-                    return {'result': True, 'rush_id': rush_id, 'misc': str(stack_info)}
+                    #Check the name to select the one just created
+                    for stack in stack_list:
+                        stack_info = stack._info;
+                        if stack_info['stack_name'] == cfg.CONF.tdaf_rush_prefix+str(tenant_id):
+                            break
+                    if stack_info['stack_name'] == cfg.CONF.tdaf_rush_prefix+str(tenant_id):
+                        values = {'stack_id':stack_info['id'],'id':rush_id,'rush_type_id':rush_type_id,'status': stack_info['stack_status']}
+                        rc = db_api.rush_stack_create(ctxt, values)
+                        values = {'rush_id':rush_id,'tenant_id':tenant_id}
+                        tc = db_api.rush_tenant_create(ctxt, values)
+                        return {'result': True, 'rush_id': rush_id, 'misc': str(stack_info)}
+                    else:
+                        return {'result': False, 'error': 'STARTRUSHEX04', 'error_desc': 'OpenStack stack not found'}
                 else:
                     return {'result': False, 'error': 'STARTRUSHEX03', 'error_desc': 'OpenStack stack could not be created'}
             except Exception as e:
@@ -307,6 +316,6 @@ class EngineService(service.Service):
         #If there is any ip, use it as rush WS
         if len(ip_list)>0:
             ip_info = ip_list[0]._info;
-            values = {'url':'http://'+ip_info['physical_resource_id']}
+            values = {'url':'http://'+ip_info['physical_resource_id']+':5001'}
             db_api.rush_stack_update(ctxt, rush_id, values)
             
