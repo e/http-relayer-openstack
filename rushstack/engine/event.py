@@ -15,7 +15,6 @@
 
 from rushstack.db import api as db_api
 from rushstack.openstack.common import exception
-from rushstack.common import identifier
 from rushstack.openstack.common import log as logging
 
 logger = logging.getLogger(__name__)
@@ -90,11 +89,3 @@ class Event(object):
         new_ev = db_api.event_create(self.context, ev)
         self.id = new_ev.id
         return self.id
-
-    def identifier(self):
-        '''Return a unique identifier for the event.'''
-        if self.id is None:
-            return None
-
-        return identifier.EventIdentifier(event_id=str(self.id),
-                                          **self.resource.identifier())

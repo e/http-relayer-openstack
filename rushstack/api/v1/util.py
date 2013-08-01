@@ -16,8 +16,6 @@
 from webob import exc
 from functools import wraps
 
-from rushstack.common import identifier
-
 from rushstack.openstack.common.gettextutils import _
 
 
@@ -28,8 +26,10 @@ def tenant_local(handler):
     '''
     @wraps(handler)
     def handle_stack_method(controller, req, tenant_id, **kwargs):
-        req.context.tenant_id = tenant_id
-        return handler(controller, req, **kwargs)
+        if req.context.tenant_id == tenant_id:
+            return handler(controller, req, **kwargs)
+        else:
+            raise exc.HTTPUnauthorized()
 
     return handle_stack_method
 

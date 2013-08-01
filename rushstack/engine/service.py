@@ -25,7 +25,6 @@ from rushstack.db import api as db_api
 from rushstack.engine import api
 from rushstack.rpc import api as rpc_api
 from rushstack.engine import clients
-from rushstack.common import identifier
 
 from rushstack.openstack.common import log as logging
 from rushstack.openstack.common import threadgroup
