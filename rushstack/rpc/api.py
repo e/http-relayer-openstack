@@ -13,3 +13,9 @@
 #    under the License.
 
 ENGINE_TOPIC = 'rushstack'
+PARAM_KEYS = (
+    PARAM_TIMEOUT, PARAM_DISABLE_ROLLBACK
+) = (
+    'timeout_mins', 'disable_rollback'
+)
+

@@ -61,10 +61,7 @@ def heatclient(username=None,password=None,tenant_name=None):
     kwargs['token'] = ksclient.auth_token
 
     #Get the endpoint
-    LOG.debug('has_service_catalog:'+str(ksclient.has_service_catalog()))
-    LOG.debug('get_endpoints:'+str(ksclient.service_catalog.get_endpoints(cfg.CONF.orchestration_type)))
     endpoint = ksclient.service_catalog.get_endpoints(cfg.CONF.orchestration_type)[cfg.CONF.orchestration_type][0]['publicURL']
-    LOG.debug('endpoint:'+str(endpoint))
     
     client = heat_client.Client(api_version, endpoint, **kwargs)
     client.format_parameters = format_parameters

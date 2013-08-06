@@ -15,13 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""Heat exception subclasses"""
+"""Rush exception subclasses"""
 
 import functools
 import urlparse
 import sys
-from heat.openstack.common.gettextutils import _
-from heat.openstack.common import exception
+from rushstack.openstack.common.gettextutils import _
+from rushstack.openstack.common import exception
 
 
 OpenstackException = exception.OpenstackException
@@ -183,7 +183,7 @@ class InvalidRedirect(OpenstackException):
 
 
 class NoServiceEndpoint(OpenstackException):
-    message = _("Response from Keystone does not contain a Heat endpoint.")
+    message = _("Response from Keystone does not contain a RUSH endpoint.")
 
 
 class RegionAmbiguity(OpenstackException):

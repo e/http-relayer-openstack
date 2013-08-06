@@ -48,8 +48,6 @@ def request_context(func):
         return func(self, ctx, *args, **kwargs)
     return wrapped
 
-HEAT_API_VERSION = "1"
-
 class EngineService(service.Service):
     """
     Manages the running instances from creation to destruction.

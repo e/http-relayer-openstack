@@ -15,7 +15,7 @@
 #    under the License.
 
 """
-  CLI interface for heat management.
+  CLI interface for RUSH management.
 """
 
 import sys

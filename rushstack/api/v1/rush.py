@@ -14,7 +14,7 @@
 #    under the License.
 
 """
-Stack endpoint for Heat v1 ReST API.
+Stack endpoint for RUSH v1 ReST API.
 """
 
 from webob import exc
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 class RushController(object):
     """
-    WSGI controller for stacks resource in Heat v1 API
+    WSGI controller for stacks resource in RUSH v1 API
     Implements the API actions
     """
 
