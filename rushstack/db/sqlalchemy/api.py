@@ -38,6 +38,12 @@ def rush_tenant_get_all_by_tenant(context, tenant_id):
 
     return result
 
+def rush_tenant_get_by_rush_and_tenant(context, rush_id, tenant_id):
+    result = model_query(context, models.RushTenant).\
+        filter_by(tenant_id=tenant_id,rush_id=rush_id)
+
+    return result
+
 def rush_stack_create(context, values):
     rush_stack_ref = models.RushStack()
     rush_stack_ref.update(values)

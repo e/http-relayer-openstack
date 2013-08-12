@@ -87,48 +87,54 @@ class EngineService(service.Service):
         return '*%s*'%msg
 
     @request_context
-    def get_status(self, ctxt,tenant_id):
+    def get_list(self, ctxt,tenant_id):
         """
-        Get Rush service status for the tenant (ctxt should contain tenant_id).
+        Get Rush service list for the tenant (ctxt should contain tenant_id).
 
         :param ctxt: RPC context (must contain tenant_id)
         :param tenant_id: tenant_id to check for Rush
         
-        Returns: JSON Specifying the status of rush and the id if present
-        Response sample: {'result': True, 'active': True, 'rush_id': '8483934393', 'status': 'CREATE_COMPLETE'}
+        Returns: JSON Specifying the list of rush services and their data
+        Response sample: {'result': True, 'rush_services': [{'id': '8483934393','name':'Rush prepro','type':1 ,'endpoint': 'http://10.1.1.1:5001', 'status': 'CREATE_COMPLETE' }]}
         """
         
-        #Check in db if this tenant has an instanced Rush
-        rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
-        if rt.first():
-            rtentry = rt.first()
-            logger.debug('tenant has rush:%s'%rtentry.rush_id)
-            
-            #Update status with heat data (Rushstack DB can be out of sync with HEAT stack status)
-            heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
-            stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
-            if len(stack_list) > 0:
-                #Stack info first
-                stack_info = stack_list[0]._info;
-                values = {'status':stack_info['stack_status']}
-                db_api.rush_stack_update(ctxt, rtentry.rush_id, values)
+        try:
+            #Check in db if this tenant has an instanced Rush
+            rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
+            result = {'result': True, 'rushes': []}
+            for rtentry in rt:
+                rush_entry = db_api.rush_stack_get(ctxt, rtentry.rush_id)
+                #Update status with heat data (Rushstack DB can be out of sync with HEAT stack status)
+                heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
                 
-            rsc = db_api.rush_stack_get(ctxt,rtentry.rush_id)
-            self.update_rush_endpointdata(ctxt,heatcln,rsc.stack_id,rtentry.rush_id)
-            
-            return {'result': True, 'active': True, 'rush_id': rtentry.rush_id, 'status': rsc.status}
-        else:
-            logger.debug('tenant has no rush')
-            return {'result': True, 'active': False}
+                rush_stack_name = cfg.CONF.tdaf_rush_prefix+str(tenant_id)+"-"+str(rush_entry.name)
+                stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
+                for stack in stack_list:
+                    stack_info = stack._info;
+                    if stack_info['stack_name'] == rush_stack_name:
+                        break
+                        
+                if stack_info is not None and stack_info['stack_name'] == rush_stack_name:
+                    #Stack info first
+                    values = {'status':stack_info['stack_status']}
+                    db_api.rush_stack_update(ctxt, rtentry.rush_id, values)
+                    
+                self.update_rush_endpointdata(ctxt,heatcln,rush_entry.stack_id,rtentry.rush_id)
+                result['rushes'].append({'id': rush_entry.id, 'name': rush_entry.name, 'type': rush_entry.rush_type_id,
+                                         'endpoint':rush_entry.url, 'status': rush_entry.status})
+            return result
+        except Exception as e:
+            return {'result': False, 'error': str(e)}
 
     @request_context
-    def start_rush_stack(self, ctxt,tenant_id,rush_type_id):
+    def start_rush_stack(self, ctxt,tenant_id,rush_type_id, rush_name):
         """
         Create new Rush service for the tenant
 
         :param ctxt: RPC context
         :param tenant_id: tenant_id to check for Rush
         :param rush_type_id: rush_type_id for the new rush
+        :param rush_name: rush name to use for this new rush
         
         Returns: JSON Specifying the creation start result and the rush_id. Rush can take longer
                  to be ready for serving (check with get_status)
@@ -136,53 +142,56 @@ class EngineService(service.Service):
         """
         
         #Check in db if this tenant has an instanced Rush
-        rush_stat = self.get_status(ctxt,tenant_id)
-        if rush_stat.has_key('active') and rush_stat['active']:
-            return {'result': False, 'error': 'STARTRUSHEX01', 'error_desc': 'Rush already active'}
-        else:
-            try:
-                #Check if type_id exists
-                rtc = db_api.rush_type_get(ctxt,rush_type_id)
-                if not rtc:
-                    return {'result': False, 'error': 'STARTRUSHEX02', 'error_desc': 'Rush type does not exist'}
-                    
-                rush_id = uuidutils.generate_uuid()
+        try:
+            #Check that rush_name is not empty
+            if rush_name is None or len(rush_name) == 0:
+                return {'result': False, 'error': 'STARTRUSHEX01', 'error_desc': 'Rush name not provided'}
+            
+            #Check if type_id exists
+            rtc = db_api.rush_type_get(ctxt,rush_type_id)
+            if not rtc:
+                return {'result': False, 'error': 'STARTRUSHEX02', 'error_desc': 'Rush type does not exist'}
                 
-                #Call HEAT to create the stack
-                heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
-                
-                #Prapare dict for stack creation
-                stack_parms = {
-                    'KeyName': cfg.CONF.tdaf_instance_key
-                }
-                
-                stack_info = {
-                    'stack_name': cfg.CONF.tdaf_rush_prefix+str(tenant_id),
-                    'parameters': stack_parms,
-                    'template': rtc.template.replace ('\n', '\\n'),
-                    'timeout_mins': 60,
-                }
-                heatcln.stacks.create(**stack_info)
+            rush_id = uuidutils.generate_uuid()
+            
+            #Call HEAT to create the stack
+            heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
+            
+            #Prapare dict for stack creation
+            stack_parms = {
+                'KeyName': cfg.CONF.tdaf_instance_key
+            }
+            
+            new_stack_name = cfg.CONF.tdaf_rush_prefix+str(tenant_id)+"-"+str(rush_name)
+            
+            stack_info = {
+                'stack_name': new_stack_name,
+                'parameters': stack_parms,
+                'template': rtc.template.replace ('\n', '\\n'),
+                'timeout_mins': 60,
+            }
+            heatcln.stacks.create(**stack_info)
+        
+            stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
+            if len(stack_list) > 0:
+                #Check the name to select the one just created
+                for stack in stack_list:
+                    stack_info = stack._info;
+                    if stack_info['stack_name'] == new_stack_name:
+                        break
 
-                stack_list = self.get_stack_list_for_tenant(heatcln,tenant_id)
-                if len(stack_list) > 0:
-                    #Check the name to select the one just created
-                    for stack in stack_list:
-                        stack_info = stack._info;
-                        if stack_info['stack_name'] == cfg.CONF.tdaf_rush_prefix+str(tenant_id):
-                            break
-                    if stack_info['stack_name'] == cfg.CONF.tdaf_rush_prefix+str(tenant_id):
-                        values = {'stack_id':stack_info['id'],'id':rush_id,'rush_type_id':rush_type_id,'status': stack_info['stack_status']}
-                        rc = db_api.rush_stack_create(ctxt, values)
-                        values = {'rush_id':rush_id,'tenant_id':tenant_id}
-                        tc = db_api.rush_tenant_create(ctxt, values)
-                        return {'result': True, 'rush_id': rush_id, 'misc': str(stack_info)}
-                    else:
-                        return {'result': False, 'error': 'STARTRUSHEX04', 'error_desc': 'OpenStack stack not found'}
+                if stack_info is not None and stack_info['stack_name'] == new_stack_name:
+                    values = {'stack_id':stack_info['id'],'id':rush_id,'rush_type_id':rush_type_id,'status': stack_info['stack_status'], 'name': rush_name}
+                    rc = db_api.rush_stack_create(ctxt, values)
+                    values = {'rush_id':rush_id,'tenant_id':tenant_id}
+                    tc = db_api.rush_tenant_create(ctxt, values)
+                    return {'result': True, 'rush_id': rush_id, 'misc': str(stack_info)}
                 else:
-                    return {'result': False, 'error': 'STARTRUSHEX03', 'error_desc': 'OpenStack stack could not be created'}
-            except Exception as e:
-                return {'result': False, 'error': str(e)}
+                    return {'result': False, 'error': 'STARTRUSHEX04', 'error_desc': 'OpenStack stack not found'}
+            else:
+                return {'result': False, 'error': 'STARTRUSHEX03', 'error_desc': 'OpenStack stack could not be created'}
+        except Exception as e:
+            return {'result': False, 'error': str(e)}
 
     @request_context
     def stop_rush_stack(self, ctxt,tenant_id,rush_id):
@@ -202,7 +211,7 @@ class EngineService(service.Service):
         if rsc:
             try:
                 #Check if it is for this tenant
-                rt = db_api.rush_tenant_get_all_by_tenant(ctxt, tenant_id)
+                rt = db_api.rush_tenant_get_by_rush_and_tenant(ctxt, rush_id, tenant_id)
                 if not rt or rt.first().tenant_id != tenant_id:
                     return {'result': False, 'error': 'STOPRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
                     
@@ -219,7 +228,7 @@ class EngineService(service.Service):
             return {'result': False, 'error': 'STOPRUSHEX01', 'error_desc': 'Could not find Rush'}
 
     @request_context
-    def get_rush_endpoint(self, ctxt,tenant_id,rush_id):
+    def get_rush(self, ctxt,tenant_id,rush_id):
         """
         Get the endpoint data for the Rush service identified by rush_id for the tenant
 
@@ -228,7 +237,7 @@ class EngineService(service.Service):
         :param rush_id: rush_id to stop
         
         Returns: JSON Specifying the stop result and the rush_id.
-        Response sample: {'result': True, 'rush_id': '8483934393', 'tk': '77389abbef92e01a0883d', 'ws': 'http://10.95.158.11/rush'}
+        Response sample: {'result': True, 'rush_id': '8483934393', ''ws': 'http://10.95.158.11/rush'}
         """
         
         #Check in db if the rush exists
@@ -241,11 +250,11 @@ class EngineService(service.Service):
                     return {'result': False, 'error': 'GETRUSHEX02', 'error_desc': 'Could not find Rush for the tenant'}
                 
                 #Check if the data is fill in. If not, update
-                if rsc.tk is None or rsc.url is None:
+                if rsc.url is None:
                     heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
                     self.update_rush_endpointdata(ctxt,heatcln,rsc.stack_id,rush_id)
                     
-                return {'result': True, 'rush_id': rush_id, 'tk': str(rsc.tk), 'url': str(rsc.url)}
+                return {'result': True, 'rush_id': rush_id, 'url': str(rsc.url)}
             except Exception as e:
                 return {'result': False, 'error': str(e)}
         else:

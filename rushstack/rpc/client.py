@@ -48,40 +48,42 @@ class EngineClient(rushstack.openstack.common.rpc.proxy.RpcProxy):
         return self.call(ctxt, self.make_msg('echo',
                                              msg=msg))
 
-    def get_status(self, ctxt, tenant_id):
+    def get_list(self, ctxt, tenant_id):
         """
-        Get Rush service status for the tenant (ctxt should contain tenant_id).
+        Get Rush services list for the tenant (ctxt should contain tenant_id).
 
         :param ctxt: RPC context
         :param tenant_id: tenant_id to check for Rush
         
         Returns: Response got from RPC server.
-        Response sample: {'result': True, 'active': True, 'rush_id': '8483934393'}
+        Response sample: {'result': True, 'rushes': [{'id': '8483934393','name':'Rush prepro','type':1 ,'endpoint': 'http://10.1.1.1:5001', 'status': 'COMPLETED' }]}
         """
-        return self.call(ctxt, self.make_msg('get_status',
+        return self.call(ctxt, self.make_msg('get_list',
                                              tenant_id=tenant_id))
 
-    def start_rush_stack(self, ctxt, tenant_id, rush_type_id):
+    def start_rush_stack(self, ctxt, tenant_id, rush_type_id, rush_name):
         """
         Instantiate a new Rush service for the required tenant
 
         :param ctxt: RPC context
         :param tenant_id: tenant_id for the new Rush
         :param rush_type_id: rush_type_id for the new rush
+        :param rush_name: rush name to use for this new rush
         
         Returns: Response got from RPC server.
         Response sample: {'result': True, 'rush_id': '8483934393'}
         """
         return self.call(ctxt, self.make_msg('start_rush_stack',
                                              tenant_id=tenant_id,
-                                             rush_type_id=rush_type_id))
+                                             rush_type_id=rush_type_id,
+                                             rush_name=rush_name))
 
     def stop_rush_stack(self, ctxt, tenant_id, rush_id):
         """
         Stop (and destroye) a an existing Rush service for the required tenant
 
         :param ctxt: RPC context
-        :param tenant_id: tenant_id owner of the Rsuh
+        :param tenant_id: tenant_id owner of the Rush
         :param rush_id: Rush to stop
         
         Returns: Response got from RPC server.
@@ -91,17 +93,16 @@ class EngineClient(rushstack.openstack.common.rpc.proxy.RpcProxy):
                                              tenant_id=tenant_id,
                                              rush_id=rush_id))
 
-    def get_rush_endpoint(self, ctxt, tenant_id, rush_id):
+    def get_rush(self, req):
         """
-        Get Rush service status for the tenant (ctxt should contain tenant_id).
-
+        Get tenant RUSH details
         :param ctxt: RPC context
-        :param tenant_id: tenant_id to check for Rush
-        :param rush_id: Rush to get data
+        :param tenant_id: tenant_id owner of the Rsuh
+        :param rush_id: Rush to stop
         
         Returns: Response got from RPC server.
-        Response sample: {'result': True, 'rush_id': '8483934393', 'tk': '77389abbef92e01a0883d', 'ws': 'http://10.95.158.11/rush'}
+        Response sample: {'result': True, 'id': '8483934393','name':'Rush prepro','type':1 ,'endpoint': 'http://10.1.1.1:5001', 'status': 'COMPLETED', 'extdata': '{}'}
         """
-        return self.call(ctxt, self.make_msg('get_rush_endpoint',
-                                             tenant_id=tenant_id,
-                                             rush_id=rush_id))
+        
+        #Call to RPC to get real details
+        return self.engine.get_rush(req.context,req.context.tenant_id,req.context.rush_id)

@@ -74,3 +74,7 @@ def rush_stack_get(context, rush_id):
 
 def rush_stack_update(context, rush_id, values):
     return IMPL.rush_stack_update(context, rush_id, values)
+
+def rush_tenant_get_by_rush_and_tenant(context, rush_id, tenant_id):
+    return IMPL.rush_tenant_get_by_rush_and_tenant(context, rush_id, tenant_id)
+

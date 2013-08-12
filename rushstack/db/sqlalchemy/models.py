@@ -156,8 +156,9 @@ class RushStack(BASE, RushstackBase):
 
     __tablename__ = 'rush_stack'
     id = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+    name = sqlalchemy.Column(sqlalchemy.String)
     stack_id = sqlalchemy.Column(sqlalchemy.String)
     rush_type_id = sqlalchemy.Column(sqlalchemy.Integer)
     status = sqlalchemy.Column(sqlalchemy.String)
-    tk = sqlalchemy.Column(sqlalchemy.Text)
+    extdata = sqlalchemy.Column(sqlalchemy.Text)
     url = sqlalchemy.Column(sqlalchemy.Text)

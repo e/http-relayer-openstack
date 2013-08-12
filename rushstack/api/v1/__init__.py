@@ -38,7 +38,7 @@ class API(wsgi.Router):
         mapper = routes.Mapper()
 
         # Actions
-        rush_path = "/{tenant_id}/rush"
+        rush_path = "/{tenant_id}/rushes"
         actions_resource = rush.create_resource(conf)
         with mapper.submapper(controller=actions_resource,
                               path_prefix=rush_path) as ac_mapper:
@@ -50,24 +50,24 @@ class API(wsgi.Router):
                                  action="echo",
                                  conditions={'method': 'GET'})
 
-            ac_mapper.connect("status",
+            ac_mapper.connect("list",
                                  "",
-                                 action="get_status",
+                                 action="get_list",
                                  conditions={'method': 'GET'})
 
-            ac_mapper.connect("status",
+            ac_mapper.connect("create",
                                  "",
                                  action="create_rush",
                                  conditions={'method': 'PUT'})
 
-            ac_mapper.connect("status",
+            ac_mapper.connect("delete",
                                  "/{rush_id}",
                                  action="delete_rush",
                                  conditions={'method': 'DELETE'})
 
-            ac_mapper.connect("rushdata",
+            ac_mapper.connect("get_rush",
                                  "/{rush_id}",
-                                 action="get_rush_endpoind",
+                                 action="get_rush",
                                  conditions={'method': 'GET'})
 
         super(API, self).__init__(mapper)

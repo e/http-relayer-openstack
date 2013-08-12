@@ -53,21 +53,19 @@ class RushController(object):
         return {'tenant_id': req.context.tenant_id, 'res': res}
     
     @util.tenant_local
-    def get_status(self, req):
+    def get_list(self, req):
         """
         Get status of RUSH service for this tenant and id
         """
-        return self.engine.get_status(req.context,req.context.tenant_id)
-    
-    ACTIONS = (STOP, START) = ('stop', 'start')
+        return self.engine.get_list(req.context,req.context.tenant_id)
     
     @util.tenant_local
     def create_rush(self, req, body={}):
         """
         Create RUSH service for this tenant
-        Body must contain the rush_type_id
+        Body must contain the rush_type_id and rush_name
         """
-        return self.engine.start_rush_stack(req.context,req.context.tenant_id,body['rush_type_id'])
+        return self.engine.start_rush_stack(req.context,req.context.tenant_id,body['rush_type_id'],body['rush_name'])
     
     @util.identified_rush
     def delete_rush(self, req):
@@ -77,13 +75,13 @@ class RushController(object):
         return self.engine.stop_rush_stack(req.context,req.context.tenant_id,req.context.rush_id)
     
     @util.identified_rush
-    def get_rush_endpoind(self, req):
+    def get_rush(self, req):
         """
-        Get tenant RUSH endpoint data
+        Get tenant RUSH details
         """
         
-        #Call to RPC to get real status and if active, return URL and Token
-        return self.engine.get_rush_endpoint(req.context,req.context.tenant_id,req.context.rush_id)
+        #Call to RPC to get real details
+        return self.engine.get_rush(req.context,req.context.tenant_id,req.context.rush_id)
     
 class RushSerializer(wsgi.JSONResponseSerializer):
     """Handles serialization of specific controller method responses."""
