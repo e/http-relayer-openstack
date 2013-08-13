@@ -104,7 +104,9 @@ class EngineService(service.Service):
             result = {'result': True, 'rushes': []}
             for rtentry in rt:
                 rush_entry = db_api.rush_stack_get(ctxt, rtentry.rush_id)
+                
                 #Update status with heat data (Rushstack DB can be out of sync with HEAT stack status)
+                #Can be removed to improve query performance when status is CREATE_COMPLETE
                 heatcln = heat.heatclient(cfg.CONF.tdaf_username, cfg.CONF.tdaf_user_password, cfg.CONF.tdaf_tenant_name)
                 
                 rush_stack_name = cfg.CONF.tdaf_rush_prefix+str(tenant_id)+"-"+str(rush_entry.name)
